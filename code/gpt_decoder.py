@@ -73,6 +73,8 @@ parser.add_argument('--model_folder', type=str, default='save/testing')
 parser.add_argument('--model_name', type=str, default='model')
 parser.add_argument('--output_folder', type=str, default='outputs')
 parser.add_argument('--output_file', type=str, default='output.txt')
+parser.add_argument('--decode_num', type=int, default=-1)
+
 
 args = parser.parse_args()
 if __name__ == '__main__':
@@ -87,7 +89,12 @@ if __name__ == '__main__':
 	tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 	weights = torch.load(model_file)
 	medium_config = GPT2Config(n_embd=1024,n_layer=24,n_head=16)
-	model = GPT2LMHeadModel(medium_config)
+	small_config= GPT2Config(n_embd=768,n_layer=12,n_head=12)
+	if 'small' in model_file:
+
+		model = GPT2LMHeadModel(small_config)
+	elif 'medium' in model_file:
+		model = GPT2LMHeadModel(medium_config)
 
 	# fix misused key value
 	weights["lm_head.weight"] = weights["lm_head.decoder.weight"]
@@ -102,9 +109,15 @@ if __name__ == '__main__':
 	output_lines=[]
 	with open(decode_file,'r') as fin:
 		lines=fin.readlines()
+		assert args.decode_num<=len(lines)
+		if args.decode_num==-1:
+			decode_size=len(lines)
+		else:
+			decode_size=args.decode_num
 
-		progress = tqdm(unit_scale=True, total=len(lines),  desc="Decoding {}".format(args.decode_file))
-		for line in lines:
+		progress = tqdm(unit_scale=True, total=decode_size,  desc="Decoding {}".format(args.decode_file))
+		for i in range(decode_size):
+			line=lines[i]
 			progress.update(1)
 		# for i in tqdm.tqdm(range(len(lines))):
 		# 	line=lines[i]

@@ -480,3 +480,5 @@ models/
 apex/
 nohup.out
 outputs/
+code/bash.sh
+code/eval.ipynb
