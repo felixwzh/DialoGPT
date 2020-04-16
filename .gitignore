@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# data
+data/
+
+
 # User-specific files
 *.suo
 *.user
@@ -473,3 +477,6 @@ models/
 # docker/
 # prepro_v4.py
 # prepro.py
+apex/
+nohup.out
+outputs/
