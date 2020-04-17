@@ -75,6 +75,9 @@ parser.add_argument('--output_folder', type=str, default='outputs')
 parser.add_argument('--output_file', type=str, default='output.txt')
 parser.add_argument('--decode_num', type=int, default=-1)
 
+parser.add_argument('--decode_start', type=int, default=-1)
+parser.add_argument('--decode_end', type=int, default=-1)
+
 
 args = parser.parse_args()
 if __name__ == '__main__':
@@ -114,9 +117,12 @@ if __name__ == '__main__':
 			decode_size=len(lines)
 		else:
 			decode_size=args.decode_num
-
+		decode_list=list(range(decode_size))
+		if args.decode_start!=-1:
+			decode_size=args.decode_end - args.decode_start
+			decode_list=list(range(args.decode_start,args.decode_end,1))
 		progress = tqdm(unit_scale=True, total=decode_size,  desc="Decoding {}".format(args.decode_file))
-		for i in range(decode_size):
+		for i in decode_list:
 			line=lines[i]
 			progress.update(1)
 		# for i in tqdm.tqdm(range(len(lines))):

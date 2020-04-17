@@ -6,6 +6,8 @@
 # data
 data/
 
+# eval bash
+code/*eval*.sh
 
 # User-specific files
 *.suo
