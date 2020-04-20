@@ -353,6 +353,7 @@ while True:
                     eval_loss, eval_ppl = eval_model_loss(
                         model, enc, eval_dataloader_loss, epoch, args)
                     # enable generation step evaluation for now
+                    # TODO: implement this eval_model_generation function.
                     # gen_response = eval_model_generation(
                     #     model, enc, eval_dataloader_gen, epoch, args)
                     '''

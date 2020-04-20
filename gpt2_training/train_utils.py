@@ -36,7 +36,22 @@ def load_model(model, checkpoint, args, verbose=False):
                     for s in model_state_dict.keys())):
             logger.info('loading transfomer only')
             start_model = model.transformer
-        start_model.load_state_dict(model_state_dict)
+        
+        # below is the first solution for param loading
+        # start_model.load_state_dict(model_state_dict,strict=False)
+
+        # another way
+        # from: https://discuss.pytorch.org/t/how-to-load-part-of-pre-trained-model/1113/40
+        pretrained_dict = torch.load(checkpoint)
+        model_dict = model.state_dict()
+        # 1. filter out unnecessary keys
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(pretrained_dict) 
+        # 3. load the new state dict
+        start_model.load_state_dict(model_dict)
+
+
 
     if args.fp16:
         logger.info('in fp16, model.half() activated')
@@ -76,6 +91,7 @@ class InputFeatures(object):
         self.lm_labels = lm_labels
         self.context_len = context_len
         self.response_len = response_len    # in case we need it
+        # TODO: add speaker id
 
 
 class InputFeatures_train(object):
@@ -91,6 +107,7 @@ class InputFeatures_train(object):
             self.input_len = len(input_ids)
         else:
             self.input_len = input_len
+        # TODO: add speaker id
 
 
 class RedditExample(object):
@@ -115,6 +132,7 @@ def boolean_string(s):
 
 def get_eval_list_same_length(input_file, tokenizer, max_batch_size,
                               norm=True):
+    # TODO: add speaker id
     examples = []
     with open(input_file, 'r', encoding="utf-8") as f:
         content = [l.split('\t') for l in f.read().splitlines()]

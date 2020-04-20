@@ -25,7 +25,7 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
-from pytorch_pretrained_bert.modeling_gpt2 import GPT2PreTrainedModel, GPT2Model, GPT2LMHead, Attention, Block, \
+from .pytorch_pretrained_bert.modeling_gpt2 import GPT2PreTrainedModel, GPT2Model, GPT2LMHead, Attention, Block, \
     LayerNorm, MLP
 
 logger = logging.getLogger(__name__)

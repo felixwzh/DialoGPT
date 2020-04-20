@@ -73,6 +73,7 @@ class GPT2FeatureDataset(Dataset):
             feat_dict['token_type_ids'] = feat_dict['token_type_ids'][
                 -self.max_len:]
             feat_dict['lm_labels'] = feat_dict['lm_labels'][-self.max_len:]
+            # TODO: add speaker ID
         try:
             for s in ['context_len', 'response_len']:
                 if s in feat_dict.keys():
@@ -104,6 +105,7 @@ class GPT2FeatureDataset(Dataset):
         labels = pad_sequence([torch.tensor(f.lm_labels, dtype=torch.long)
                                for f in features],
                               batch_first=True, padding_value=-1)
+        # TODO: add speaker id
         return (input_ids, position_ids, token_type_ids, labels)
 
 
@@ -168,6 +170,7 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
     """
     do not pad
     """
+    # TODO: add speaker id
     def featurize(example):
         conv_id = example.conv_id
         context_id = tokenizer.encode(example.context)
@@ -208,6 +211,7 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
 
 
 class DynamicBatchingLoader(object):
+    # TODO: add speaker id
     """ this loader takes raw text file, used for validate perplexity """
     def __init__(self, corpus_file, tokenizer, normalize_data,
                  batch_size, max_seq_length):
