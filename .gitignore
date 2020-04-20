@@ -479,7 +479,6 @@ models/
 # docker/
 # prepro_v4.py
 # prepro.py
-apex/
 nohup.out
 outputs/
 code/bash.sh
