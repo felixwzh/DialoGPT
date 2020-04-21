@@ -73,7 +73,6 @@ class GPT2FeatureDataset(Dataset):
             feat_dict['token_type_ids'] = feat_dict['token_type_ids'][
                 -self.max_len:]
             feat_dict['lm_labels'] = feat_dict['lm_labels'][-self.max_len:]
-            # TODO: add speaker ID
         try:
             for s in ['context_len', 'response_len']:
                 if s in feat_dict.keys():
@@ -105,8 +104,8 @@ class GPT2FeatureDataset(Dataset):
         labels = pad_sequence([torch.tensor(f.lm_labels, dtype=torch.long)
                                for f in features],
                               batch_first=True, padding_value=-1)
-        # TODO: add speaker id
-        return (input_ids, position_ids, token_type_ids, labels)
+        persona_ids = torch.tensor([f.persona_id for f in features])
+        return (input_ids, position_ids, token_type_ids, labels, persona_ids)
 
 
 class BucketingDataLoader(object):
@@ -170,7 +169,6 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
     """
     do not pad
     """
-    # TODO: add speaker id
     def featurize(example):
         conv_id = example.conv_id
         context_id = tokenizer.encode(example.context)
@@ -201,9 +199,9 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
         position_ids = list(range(len(input_ids)))
 
         token_type_id = [0] * len(input_ids)
-
+        
         return InputFeatures(conv_id, input_ids, position_ids, token_type_id,
-                             lm_labels, len(context_id), len(response_id))
+                             lm_labels, len(context_id), len(response_id),example.persona_id)
 
     # discard None feature
     features = [f for f in [featurize(ex) for ex in examples] if f is not None]
@@ -211,7 +209,6 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
 
 
 class DynamicBatchingLoader(object):
-    # TODO: add speaker id
     """ this loader takes raw text file, used for validate perplexity """
     def __init__(self, corpus_file, tokenizer, normalize_data,
                  batch_size, max_seq_length):
@@ -286,8 +283,9 @@ class DynamicBatchingLoader(object):
                                    dtype=torch.long)
         response_len = torch.tensor([f.response_len for f in features],
                                     dtype=torch.long)
+        persona_ids = torch.tensor([f.persona_id for f in features])
         return (input_ids, position_ids, token_type_ids, labels,
-                context_len, response_len)
+                context_len, response_len, persona_ids)
 
     def get_len(self, corpus):
         n_line = int(sp.check_output(f"wc -l {corpus}".split(),

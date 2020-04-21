@@ -60,10 +60,17 @@ def _make_features(id_, weights, inputs, tokenizer, max_len):
     ws = []
     len_ = 0
     i = 0
+    if args.speaker:
+        if len(weights)==2 and weights[-1]>0:
+            persona_id=int(weights[-1])
     for ids, w in zip(inputs, weights):
         if len(ids) > max_len:
             if len(sents) >= 2:
-                feat = _make_feature(id_ + i, sents, ws, end_of_text_id)
+                if args.speaker:
+
+                    feat = _make_feature(id_ + i, sents, ws, end_of_text_id,persona_id)
+                else:
+                    feat = _make_feature(id_ + i, sents, ws, end_of_text_id)
                 if feat is not None:
                     features.append(feat)
                     i += 1
@@ -72,7 +79,10 @@ def _make_features(id_, weights, inputs, tokenizer, max_len):
             ws = []
             continue
         elif len_ > max_len:
-            feat = _make_feature(id_ + i, sents, ws, end_of_text_id)
+            if args.speaker:
+                feat = _make_feature(id_ + i, sents, ws, end_of_text_id,persona_id)
+            else:
+                feat = _make_feature(id_ + i, sents, ws, end_of_text_id)
             if feat is not None:
                 features.append(feat)
                 i += 1
@@ -83,14 +93,18 @@ def _make_features(id_, weights, inputs, tokenizer, max_len):
         sents.append(ids)
         ws.append(w)
     if len(sents) >= 2:
-        feat = _make_feature(id_ + i, sents, ws, end_of_text_id)
+        if args.speaker:
+            feat = _make_feature(id_ + i, sents, ws, end_of_text_id,persona_id)
+        else:
+            feat = _make_feature(id_ + i, sents, ws, end_of_text_id)
+
         if feat is not None:
             features.append(feat)
 
     return features
 
 
-def _make_feature(id_, sents, ws, eos):
+def _make_feature(id_, sents, ws, eos,persona_id=None):
     if all(w == 0 for w in ws[1:]):
         return None
     input_ids = [i for s in sents for i in s+[eos]][:-1]
@@ -138,7 +152,7 @@ def _make_feature(id_, sents, ws, eos):
         import pdb
         pdb.set_trace()
     feature = InputFeatures(id_, input_ids, position_ids, token_type_ids,
-                            lm_labels, weights)
+                            lm_labels, weights,persona_id=persona_id)
     return feature
 
 
@@ -215,6 +229,8 @@ if __name__ == '__main__':
                         help='reverse the src tgt')
     parser.add_argument('--two_turn', action='store_true',
                         help='take only the first 2 turns')
+    parser.add_argument('--speaker', action='store_true',
+                        help='add apeaker as a part of the data')       
 
     args = parser.parse_args()
 

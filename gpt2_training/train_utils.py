@@ -81,7 +81,7 @@ def fix_state_dict_namespace(model_state_dict):
 
 class InputFeatures(object):
     def __init__(self, conv_id, input_ids, position_ids, token_type_ids,
-                 lm_labels, context_len, response_len):
+                 lm_labels, context_len, response_len,persona_id=None):
         self.conv_id = conv_id
         self.choices_features = {
             'input_ids': input_ids,
@@ -91,30 +91,36 @@ class InputFeatures(object):
         self.lm_labels = lm_labels
         self.context_len = context_len
         self.response_len = response_len    # in case we need it
-        # TODO: add speaker id
+        self.persona_id = persona_id
 
 
 class InputFeatures_train(object):
     def __init__(self, conv_id, input_ids, position_ids, token_type_ids,
-                 lm_labels, weights, input_len=None):
+                 lm_labels, weights, input_len=None,persona_id=None):
         self.conv_id = conv_id
         self.input_ids = input_ids
         self.position_ids = position_ids
         self.token_type_ids = token_type_ids
         self.lm_labels = lm_labels
         self.weights = weights
+        if persona_id is None:
+            self.persona_id=0
+        else:
+            self.persona_id=persona_id
         if input_len is None:
             self.input_len = len(input_ids)
         else:
             self.input_len = input_len
-        # TODO: add speaker id
 
 
 class RedditExample(object):
     def __init__(self, conv_id, context, response):
         self.conv_id = conv_id
+        w,context=self.__filter_out_weight__(context)
+        persona_id,response=self.__filter_out_weight__(response)
         self.context = context
         self.response = response
+        self.persona_id=int(persona_id)
 
     def __repr__(self):
         return 'conv_id = {}\ncontext = {}\nresponse = {}'.format(
@@ -122,6 +128,16 @@ class RedditExample(object):
 
     def __str__(self):
         return self.__repr__()
+    def __filter_out_weight__(self,text):
+        w, *toks = text.strip().split()
+        try:
+            w = float(w)
+        except Exception:
+            toks = [w] + toks
+            print('norm failed')
+            print(text)
+            w = 1.0
+        return w, ' '.join(toks)        
 
 
 def boolean_string(s):
@@ -132,7 +148,6 @@ def boolean_string(s):
 
 def get_eval_list_same_length(input_file, tokenizer, max_batch_size,
                               norm=True):
-    # TODO: add speaker id
     examples = []
     with open(input_file, 'r', encoding="utf-8") as f:
         content = [l.split('\t') for l in f.read().splitlines()]
@@ -162,9 +177,10 @@ def get_eval_list_same_length(input_file, tokenizer, max_batch_size,
         position_ids = list(range(len(input_ids)))
 
         token_type_id = [0] * len(input_ids)
+        persona_id = example.persona_id
 
         return InputFeatures(conv_id, input_ids, position_ids, token_type_id,
-                             lm_labels, len(context_id), len(response_id))
+                             lm_labels, len(context_id), len(response_id),persona_id)
 
     def batch_feature_same_len(features):
         input_ids = torch.stack([torch.tensor(f.choices_features['input_ids'],
@@ -185,8 +201,9 @@ def get_eval_list_same_length(input_file, tokenizer, max_batch_size,
                                    dtype=torch.long)
         response_len = torch.tensor([f.response_len for f in features],
                                     dtype=torch.long)
+        persona_ids = torch.tensor([f.persona_id for f in features])
         return (input_ids, position_ids, token_type_ids, labels,
-                context_len, response_len)
+                context_len, response_len,persona_ids)
 
     features = [featurize(e) for e in examples]
     dataloader_pre = defaultdict(list)

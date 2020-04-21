@@ -60,11 +60,14 @@ def eval_model_loss(model, tokenizer, eval_dataloader, epoch_id, args):
     with torch.no_grad():
         for step, batch in enumerate(eval_dataloader):
             batch = tuple(t.to(args.device) for t in batch)
-            input_ids, position_ids, token_ids, label_ids, src_len, _ = batch
+            input_ids, position_ids, token_ids, label_ids, src_len, tgt_len, persona_ids = batch
+            """ 
+            # FIXME: may use it later
             if args.no_token_id:
                 token_ids = None
+            """
             n_sample = input_ids.shape[0]
-            loss, ppl = model(input_ids, position_ids, token_ids, label_ids)
+            loss, ppl = model(input_ids, persona_ids, position_ids, token_ids, label_ids)
             tot_loss.append(loss.mean().item() * n_sample)
             tot_ppl.append(ppl.mean().item() * n_sample)
             tot_sample.append(n_sample)

@@ -75,7 +75,7 @@ parser.add_argument("--fp16", type=boolean_string, default=True)
 parser.add_argument("--lr_schedule", type=str,
                     choices=['noam', 'noamwd', 'BERT', 'None'], default='noam')
 parser.add_argument("--loss_scale", type=float, default=0)
-parser.add_argument("--no_token_id", type=boolean_string, default=True)
+parser.add_argument("--no_token_id", type=boolean_string, default=True) # FIXME: should we use token_id or not?
 
 parser.add_argument("--output_dir", type=str)
 parser.add_argument("--log_dir", type=str)
@@ -86,7 +86,12 @@ parser.add_argument('--local_rank', type=int, default=-1,
                     help='for torch.distributed')
 parser.add_argument('--config', help='JSON config file')
 
-
+# speaker 
+parser.add_argument("--persona_emb_type", type=str,default='decode',
+                    help="[decode|all], `decode`: only add persona_emb to the decode part"
+                         "`all`: add persona_emb to all the positions")
+parser.add_argument("--PersonaNum", type=int, default=4167,help='number of persona')
+  
 # do normal parsing
 args = parser.parse_args()
 
@@ -191,6 +196,11 @@ eval_dataloader_gen = get_eval_list_same_length(
 #########################################################################
 # Prepare Model and Optimizer
 ##########################################################################
+# add args to config 
+config.no_token_id=args.no_token_id
+config.persona_emb_type=args.persona_emb_type
+config.PersonaNum=args.PersonaNum
+
 model = load_model(GPT2LMHeadModel(config), args.init_checkpoint,
                    args, verbose=True)
 if args.local_rank != -1:
@@ -275,10 +285,13 @@ while True:
         # activate new training mode
         seq_len = batch[0].shape[1]
         batch = tuple(t.to(device) for t in batch)
-        input_ids, position_ids, token_ids, label_ids, *_ = batch
+        input_ids, position_ids, token_ids, label_ids, persona_ids,*_ = batch
+        """ 
+        # FIXME: may use it later
         if args.no_token_id:
             token_ids = None
-        loss, ppl = model(input_ids, position_ids, token_ids, label_ids)
+        """
+        loss, ppl = model(input_ids, persona_ids,  position_ids, token_ids, label_ids)
 
         if n_gpu > 1:
             loss = loss.mean()
@@ -354,6 +367,7 @@ while True:
                         model, enc, eval_dataloader_loss, epoch, args)
                     # enable generation step evaluation for now
                     # TODO: implement this eval_model_generation function.
+                    # ref : https://drogozhang.blog.csdn.net/article/details/103414921
                     # gen_response = eval_model_generation(
                     #     model, enc, eval_dataloader_gen, epoch, args)
                     '''

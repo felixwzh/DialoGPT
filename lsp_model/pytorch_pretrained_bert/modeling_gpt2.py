@@ -496,9 +496,12 @@ class GPT2Model(GPT2PreTrainedModel):
             (the previous two being the word and position embeddings).
             The input, position and token_type embeddings are summed inside the Transformer before the first
             self-attention block.
+            zh: we can use this as a mask for decoding only speaker embedding. 
         `past`: an optional list of torch.LongTensor that contains pre-computed hidden-states
             (key and values in the attention blocks) to speed up sequential decoding
             (this is the presents output of the model, cf. below).
+        `persona_ids`: an optional list of torch.LongTensor that contains each responces speaker's 
+            persona id.
 
     Outputs a tuple consisting of:
         `hidden_states`: the encoded-hidden-states at the top of the model
@@ -524,13 +527,15 @@ class GPT2Model(GPT2PreTrainedModel):
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.n_positions, config.n_embd)
         self.persona_embedding=nn.Embedding(config.PersonaNum,config.n_embd)
+        # TODO: add a method to init self.persona_embedding from pretrained emb
         block = Block(config.n_ctx, config, scale=True)
         self.h = nn.ModuleList([copy.deepcopy(block) for _ in range(config.n_layer)])
         self.ln_f = LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
+        self.config = config
 
         self.apply(self.init_weights)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, past=None):
+    def forward(self, input_ids, persona_ids,position_ids=None, token_type_ids=None, past=None):
         if past is None:
             past_length = 0
             past = [None] * len(self.h)
@@ -539,19 +544,41 @@ class GPT2Model(GPT2PreTrainedModel):
         if position_ids is None:
             position_ids = torch.arange(past_length, input_ids.size(-1) + past_length, dtype=torch.long, device=input_ids.device)
             position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
+        if persona_ids is None:
+            persona_ids = troch.zeros([input_ids.size()[0]],dtype=torch.long, device=input_ids.device)
+        else:
+            persona_ids=persona_ids-1 # FIXME: persona_id starts from 1 but emb id starts from 0
+
 
         input_shape = input_ids.size()
         input_ids = input_ids.view(-1, input_ids.size(-1))
         position_ids = position_ids.view(-1, position_ids.size(-1))
+        
 
         inputs_embeds = self.wte(input_ids)
         position_embeds = self.wpe(position_ids)
-        if token_type_ids is not None:
+
+        if token_type_ids is not None and not self.config.no_token_id:
             token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
             token_type_embeds = self.wte(token_type_ids)
         else:
             token_type_embeds = 0
-        hidden_states = inputs_embeds + position_embeds + token_type_embeds
+
+        # add persona emb
+        if self.config.persona_emb_type=='all':
+            token_persona_emb_ids=torch.ones(input_ids.size(),dtype=torch.long, device=input_ids.device)
+            token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
+            token_persona_emb = self.persona_embedding(token_persona_emb_ids)             
+        elif self.config.persona_emb_type=='decode':
+            token_persona_emb_ids=torch.ones(input_ids.size(),dtype=torch.long, device=input_ids.device)
+            token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
+            token_persona_emb = self.persona_embedding(token_persona_emb_ids)
+            token_persona_emb = token_persona_emb * token_type_ids.reshape((token_persona_emb.size()[0],token_persona_emb.size()[1],-1)).type(torch.float16)
+        else:
+            raise ValueError(
+                "config.persona_emb_type must be 'decode' or 'all' "
+            )
+        hidden_states = inputs_embeds + position_embeds + token_type_embeds + token_persona_emb
         presents = []
         for block, layer_past in zip(self.h, past):
             hidden_states, present = block(hidden_states, layer_past)
@@ -616,8 +643,8 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
         """
         self.lm_head.set_embeddings_weights(self.transformer.wte.weight)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, lm_labels=None, past=None):
-        hidden_states, presents = self.transformer(input_ids, position_ids, token_type_ids, past)
+    def forward(self, input_ids,persona_ids, position_ids=None, token_type_ids=None, lm_labels=None, past=None):
+        hidden_states, presents = self.transformer(input_ids,persona_ids, position_ids, token_type_ids, past)
         lm_logits = self.lm_head(hidden_states)
         if lm_labels is not None:
             # Shift so that tokens < n predict n

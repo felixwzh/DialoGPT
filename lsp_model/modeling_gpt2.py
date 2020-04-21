@@ -62,6 +62,7 @@ class GPT2ModelFP16(GPT2Model):
         super(GPT2ModelFP16, self).__init__(config)
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.n_positions, config.n_embd)
+        self.persona_embedding=nn.Embedding(config.PersonaNum,config.n_embd)
         block = BlockFP16(config.n_ctx, config, scale=True)
         self.h = nn.ModuleList([copy.deepcopy(block) for _ in range(config.n_layer)])
         self.ln_f = LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
@@ -81,8 +82,8 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
         """
         self.lm_head.set_embeddings_weights(self.transformer.wte.weight)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, lm_labels=None, past=None):
-        hidden_states, presents = self.transformer(input_ids, position_ids, token_type_ids, past)
+    def forward(self, input_ids, persona_ids,position_ids=None, token_type_ids=None, lm_labels=None, past=None):        
+        hidden_states, presents = self.transformer(input_ids, persona_ids, position_ids, token_type_ids, past)
         # import pdb; pdb.set_trace()
         lm_logits = self.lm_head(hidden_states)
         if lm_labels is not None:
