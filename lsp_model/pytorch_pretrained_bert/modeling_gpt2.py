@@ -574,6 +574,8 @@ class GPT2Model(GPT2PreTrainedModel):
             token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
             token_persona_emb = self.persona_embedding(token_persona_emb_ids)
             token_persona_emb = token_persona_emb * token_type_ids.reshape((token_persona_emb.size()[0],token_persona_emb.size()[1],-1)).type(torch.float16)
+        elif self.config.persona_emb_type=='none':
+            token_persona_emb=0
         else:
             raise ValueError(
                 "config.persona_emb_type must be 'decode' or 'all' "

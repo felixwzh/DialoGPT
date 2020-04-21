@@ -141,8 +141,8 @@ class FP16_Optimizer(object):
             a simple fix, from: https://github.com/NVIDIA/apex/issues/131#issuecomment-458859777
             this is only used to see whether I added the persona emb layer or not. will remove it later.            
             """
-            # grads_groups_flat.append(_flatten_dense_tensors([p.grad if p.grad is not None else p.new_zeros(p.size()) for p in group]))
-            grads_groups_flat.append(_flatten_dense_tensors([p.grad for p in group])) # FIXME:
+            grads_groups_flat.append(_flatten_dense_tensors([p.grad if p.grad is not None else p.new_zeros(p.size()) for p in group]))
+            # grads_groups_flat.append(_flatten_dense_tensors([p.grad for p in group])) # FIXME:
             norm_groups.append(self._compute_grad_norm(grads_groups_flat[i]))
             if norm_groups[i] == -1: #TODO: early break
                 skip = True

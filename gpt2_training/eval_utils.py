@@ -73,3 +73,53 @@ def eval_model_loss(model, tokenizer, eval_dataloader, epoch_id, args):
             tot_sample.append(n_sample)
     print(f"\n Epoch {epoch_id}: Val loss {np.sum(tot_loss) / np.sum(tot_sample)} Val ppl {np.sum(tot_ppl) / np.sum(tot_sample)} ")
     return np.sum(tot_loss) / np.sum(tot_sample), np.sum(tot_ppl) / np.sum(tot_sample)
+
+
+
+def inference_model_results(model, tokenizer, inference_dataloader, args):
+    # use the same signature with eval_model_generation
+    logger.info('compute eval model loss, using eval mode, '
+                'please change it back to train after calling this function')
+    model.eval()
+    tot_sample = []
+    with torch.no_grad():
+        for step, batch in enumerate(inference_dataloader):
+            batch = tuple(t.to(args.device) for t in batch)
+            input_ids, position_ids, token_ids, label_ids, src_len, tgt_len, persona_ids = batch
+            # if args.no_token_id:
+            #     token_ids = None
+            n_sample = input_ids.shape[0]
+            logits = model.inference(input_ids, persona_ids, position_ids, token_ids)
+            def decode(batch_data, tokenizer, input_flag):
+                results = []
+                batch_data = batch_data.cpu().data.numpy()
+                for one_logits in batch_data:  # [sentence_len, vocabulary_size]
+                    if not input_flag:
+                        word_ids = np.argmax(one_logits, axis=1)
+                    else:
+                        word_ids = one_logits
+                    words = []
+                    for id in word_ids:
+                        if tokenizer.decoder[id] != "<|endoftext|>":
+                            words.append(tokenizer.decoder[id])
+                        else:
+                            break
+                    output_words = []
+                    for word in words:
+                        output_words.append(word[1:]) if word.startswith("Ġ") else output_words.append(word)
+                    results.append(" ".join(output_words))
+                return results
+
+            posts = decode(input_ids, tokenizer, True)
+            inferences = decode(logits, tokenizer, False)
+
+            tot_sample.append(n_sample)
+            logger.info("model inference results")
+            for index in range(len(posts)):
+                print("post: ", posts[index])
+                print("inference: ", inferences[index])
+
+            # print(inferences)
+            break
+    # todo
+    return None

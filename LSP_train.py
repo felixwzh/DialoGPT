@@ -88,8 +88,9 @@ parser.add_argument('--config', help='JSON config file')
 
 # speaker 
 parser.add_argument("--persona_emb_type", type=str,default='decode',
-                    help="[decode|all], `decode`: only add persona_emb to the decode part"
-                         "`all`: add persona_emb to all the positions")
+                    help="[decode|all｜none], `decode`: only add persona_emb to the decode part"
+                         "`all`: add persona_emb to all the positions"
+                         "`none`: add no persona_emb, used for baseline")
 parser.add_argument("--PersonaNum", type=int, default=4167,help='number of persona')
   
 # do normal parsing

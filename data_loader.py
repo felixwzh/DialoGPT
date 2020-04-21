@@ -165,7 +165,7 @@ class DistributedBucketingDataLoader(BucketingDataLoader):
 
 
 def convert_examples_to_features_dynamic(examples, tokenizer,
-                                         max_seq_length=512):
+                                         max_seq_length=512,do_inference=False):
     """
     do not pad
     """
@@ -192,6 +192,9 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
                 response_id = response_id[:max_seq_length-len(context_id)-2]
 
         input_ids = context_id + [end_of_text_id] + response_id + [end_of_text_id]
+        if do_inference:
+            input_ids = context_id + [end_of_text_id] 
+            lm_labels = [-1] * len(input_ids)
 
         # label simplely is next token in sequences. MASK all context_id tokens except for the last one
         lm_labels = [-1] * len(context_id) + response_id + [end_of_text_id] + [-1]
@@ -211,13 +214,14 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
 class DynamicBatchingLoader(object):
     """ this loader takes raw text file, used for validate perplexity """
     def __init__(self, corpus_file, tokenizer, normalize_data,
-                 batch_size, max_seq_length):
+                 batch_size, max_seq_length,do_inference=False):
         self.corpus = corpus_file
         self.toker = tokenizer
         self.norm = normalize_data
         self.bs = batch_size
         self.max_seq_length = max_seq_length
         self.num_examples = self.get_len(corpus_file)
+        self.do_inference=do_inference
 
     def __iter__(self, epoch=1):
         if epoch > 0:
@@ -256,7 +260,7 @@ class DynamicBatchingLoader(object):
                         if cur_bs >= self.bs:
                             break
                     features = convert_examples_to_features_dynamic(
-                        examples, self.toker, self.max_seq_length)
+                        examples, self.toker, self.max_seq_length, self.do_inference)
                     batch = self._batch_feature(features)
                     yield batch
         except StopIteration:

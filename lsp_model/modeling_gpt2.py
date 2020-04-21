@@ -118,3 +118,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
 
             return loss1, ppl1
         return lm_logits, presents
+    def inference(self, input_ids, persona_ids, position_ids=None, token_type_ids=None, past=None):
+        hidden_states, presents = self.transformer(input_ids, persona_ids, position_ids, token_type_ids, past)
+        lm_logits = self.lm_head(hidden_states)
+        return lm_logits
