@@ -62,6 +62,7 @@ parser.add_argument("--gradient_accumulation_steps", type=int, default=2,
                     help="to increase effective batch size "
                          "and reduce synchronization")
 parser.add_argument("--eval_batch_size", type=int, default=4)
+# FIXME: looks like the eval_batch_size will affect the ppl score greatly. but why?
 parser.add_argument("--learning_rate", type=float, default=1e-5)
 parser.add_argument("--num_optim_steps", type=int, default=1000000,
                     help="new API specifies num update steps")
@@ -292,7 +293,21 @@ while True:
         if args.no_token_id:
             token_ids = None
         """
-        loss, ppl = model(input_ids, persona_ids,  position_ids, token_ids, label_ids)
+        loss, ppl,loss_sum,label_size = model(input_ids, persona_ids,  position_ids, token_ids, label_ids)
+        # # train input
+        # print('='*40)
+        # print('training data')
+        # print('input_ids')
+        # print(input_ids)
+        # print('persona_ids')
+        # print(persona_ids)
+        # print('position_ids')
+        # print(position_ids)
+        # print('token_ids')
+        # print(token_ids)
+        # print('label_ids')
+        # print(label_ids)
+
 
         if n_gpu > 1:
             loss = loss.mean()

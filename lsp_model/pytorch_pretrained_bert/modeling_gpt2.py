@@ -251,6 +251,7 @@ class Attention(nn.Module):
         a = self.merge_heads(a)
         a = self.c_proj(a)
         return a, present
+        # TODO: check this attention closely.
 
 
 class MLP(nn.Module):
@@ -536,6 +537,7 @@ class GPT2Model(GPT2PreTrainedModel):
         self.apply(self.init_weights)
 
     def forward(self, input_ids, persona_ids,position_ids=None, token_type_ids=None, past=None):
+        # TODO: we need to handle all these three in generate: persona_ids,position_ids, token_type_ids
         if past is None:
             past_length = 0
             past = [None] * len(self.h)
@@ -563,6 +565,7 @@ class GPT2Model(GPT2PreTrainedModel):
             token_type_embeds = self.wte(token_type_ids)
         else:
             token_type_embeds = 0
+        
 
         # add persona emb
         if self.config.persona_emb_type=='all':
@@ -570,6 +573,10 @@ class GPT2Model(GPT2PreTrainedModel):
             token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
             token_persona_emb = self.persona_embedding(token_persona_emb_ids)             
         elif self.config.persona_emb_type=='decode':
+            if token_type_ids is None:
+                raise ValueError(
+                    "token_type_ids should not be None for decode type persona_emb"
+                )
             token_persona_emb_ids=torch.ones(input_ids.size(),dtype=torch.long, device=input_ids.device)
             token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
             token_persona_emb = self.persona_embedding(token_persona_emb_ids)

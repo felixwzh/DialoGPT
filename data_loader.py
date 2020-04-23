@@ -192,6 +192,7 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
                 response_id = response_id[:max_seq_length-len(context_id)-2]
 
         input_ids = context_id + [end_of_text_id] + response_id + [end_of_text_id]
+        
         if do_inference:
             input_ids = context_id + [end_of_text_id] 
             lm_labels = [-1] * len(input_ids)
@@ -201,7 +202,9 @@ def convert_examples_to_features_dynamic(examples, tokenizer,
 
         position_ids = list(range(len(input_ids)))
 
-        token_type_id = [0] * len(input_ids)
+        # token_type_id = [0] * len(input_ids) # fixed as below.
+        token_type_id = [0] * len(context_id) + [1] * (len(response_id)+1)   +[0] * 1
+        
         
         return InputFeatures(conv_id, input_ids, position_ids, token_type_id,
                              lm_labels, len(context_id), len(response_id),example.persona_id)

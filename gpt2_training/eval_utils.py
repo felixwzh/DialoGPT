@@ -4,7 +4,7 @@ import torch
 import logging
 
 import numpy as np
-
+import math
 from pycocoevalcap.bleu.bleu import Bleu
 from collections import defaultdict
 
@@ -57,6 +57,8 @@ def eval_model_loss(model, tokenizer, eval_dataloader, epoch_id, args):
     tot_loss = []
     tot_ppl = []
     tot_sample = []
+    loss_total=0
+    label_total=0
     with torch.no_grad():
         for step, batch in enumerate(eval_dataloader):
             batch = tuple(t.to(args.device) for t in batch)
@@ -67,11 +69,28 @@ def eval_model_loss(model, tokenizer, eval_dataloader, epoch_id, args):
                 token_ids = None
             """
             n_sample = input_ids.shape[0]
-            loss, ppl = model(input_ids, persona_ids, position_ids, token_ids, label_ids)
+            loss, ppl, loss_sum,label_size = model(input_ids, persona_ids, position_ids, token_ids, label_ids)
             tot_loss.append(loss.mean().item() * n_sample)
             tot_ppl.append(ppl.mean().item() * n_sample)
             tot_sample.append(n_sample)
+            loss_total+=loss_sum
+            label_total+=label_size
+    # print('='*40)
+    # print('eval data')
+    # print('input_ids')
+    # print(input_ids)
+    # print('position_ids')
+    # print(position_ids)
+    # print('token_ids')
+    # print(token_ids)
+    # print('label_ids')
+    # print(label_ids)
+    # print('loss_total')
+    # print(loss_total)
+    # print('label_total')
+    # print(label_total)
     print(f"\n Epoch {epoch_id}: Val loss {np.sum(tot_loss) / np.sum(tot_sample)} Val ppl {np.sum(tot_ppl) / np.sum(tot_sample)} ")
+    print(f"\n Epoch {epoch_id}: Val loss {np.sum(tot_loss) / np.sum(tot_sample)} Val ppl {math.exp(loss_total.cpu().item()/label_total.cpu().item())} ")
     return np.sum(tot_loss) / np.sum(tot_sample), np.sum(tot_ppl) / np.sum(tot_sample)
 
 
