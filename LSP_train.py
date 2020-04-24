@@ -229,7 +229,7 @@ model = load_model(GPT2LMHeadModel(config), args.init_checkpoint,
 
 # load emb
 if args.PersonaEmbFiles!='None':
-    if not do_persona_linear:
+    if not args.do_persona_linear:
         raise ValueError(
             "args.do_persona_linear must be True if we want to use pretrained persona emb files "
         ) # because we cannot train a 1024 dim tf-user emb now.  
