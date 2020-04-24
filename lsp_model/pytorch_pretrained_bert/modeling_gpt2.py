@@ -251,7 +251,7 @@ class Attention(nn.Module):
         a = self.merge_heads(a)
         a = self.c_proj(a)
         return a, present
-        # TODO: check this attention closely.
+        
 
 
 class MLP(nn.Module):
@@ -527,8 +527,11 @@ class GPT2Model(GPT2PreTrainedModel):
         super(GPT2Model, self).__init__(config)
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.n_positions, config.n_embd)
-        self.persona_embedding=nn.Embedding(config.PersonaNum,config.n_embd)
-        # TODO: add a method to init self.persona_embedding from pretrained emb
+        if config.do_persona_linear:
+            self.persona_embedding=nn.Embedding(config.PersonaNum,config.persona_n_embd)
+            self.persona_linear =nn.Linear(config.persona_n_embd, config.n_embd, bias=False)            
+        else:
+            self.persona_embedding=nn.Embedding(config.PersonaNum,config.n_embd)
         block = Block(config.n_ctx, config, scale=True)
         self.h = nn.ModuleList([copy.deepcopy(block) for _ in range(config.n_layer)])
         self.ln_f = LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
@@ -537,7 +540,6 @@ class GPT2Model(GPT2PreTrainedModel):
         self.apply(self.init_weights)
 
     def forward(self, input_ids, persona_ids,position_ids=None, token_type_ids=None, past=None):
-        # TODO: we need to handle all these three in generate: persona_ids,position_ids, token_type_ids
         if past is None:
             past_length = 0
             past = [None] * len(self.h)
@@ -549,7 +551,7 @@ class GPT2Model(GPT2PreTrainedModel):
         if persona_ids is None:
             persona_ids = troch.zeros([input_ids.size()[0]],dtype=torch.long, device=input_ids.device)
         else:
-            persona_ids=persona_ids-1 # FIXME: persona_id starts from 1 but emb id starts from 0
+            persona_ids=persona_ids-1 # NOTE: persona_id starts from 1 but emb id starts from 0
 
 
         input_shape = input_ids.size()
@@ -571,7 +573,9 @@ class GPT2Model(GPT2PreTrainedModel):
         if self.config.persona_emb_type=='all':
             token_persona_emb_ids=torch.ones(input_ids.size(),dtype=torch.long, device=input_ids.device)
             token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
-            token_persona_emb = self.persona_embedding(token_persona_emb_ids)             
+            token_persona_emb = self.persona_embedding(token_persona_emb_ids)
+            if self.config.do_persona_linear:
+                token_persona_emb = self.persona_linear(token_persona_emb)
         elif self.config.persona_emb_type=='decode':
             if token_type_ids is None:
                 raise ValueError(
@@ -580,6 +584,8 @@ class GPT2Model(GPT2PreTrainedModel):
             token_persona_emb_ids=torch.ones(input_ids.size(),dtype=torch.long, device=input_ids.device)
             token_persona_emb_ids = persona_ids.reshape((-1,1)) * token_persona_emb_ids 
             token_persona_emb = self.persona_embedding(token_persona_emb_ids)
+            if self.config.do_persona_linear:
+                token_persona_emb = self.persona_linear(token_persona_emb)            
             token_persona_emb = token_persona_emb * token_type_ids.reshape((token_persona_emb.size()[0],token_persona_emb.size()[1],-1)).type(torch.float16)
         elif self.config.persona_emb_type=='none':
             token_persona_emb=0
@@ -587,6 +593,7 @@ class GPT2Model(GPT2PreTrainedModel):
             raise ValueError(
                 "config.persona_emb_type must be 'decode' or 'all' "
             )
+        assert token_persona_emb.size(-1)==self.config.n_embd,(token_persona_emb.size(-1),self.config.n_embd)
         hidden_states = inputs_embeds + position_embeds + token_type_embeds + token_persona_emb
         presents = []
         for block, layer_past in zip(self.h, past):

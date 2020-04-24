@@ -39,6 +39,18 @@ INF = 100000000
 CACHE_EMPTY_STEP = 10000
 EVAL_STEP = 100000
 
+
+def read_emb_file(emb_file):
+    embs=[]
+    with open(emb_file,'r') as fin:
+        lines = fin.readlines()
+        for i,line in enumerate(lines):
+            line = line.strip().split()
+            emb=[float(em) for em in line]
+            embs.append(emb)
+    embs=np.array(embs)
+    return embs
+
 #########################################################################
 # Prepare Parser
 ##########################################################################
@@ -62,7 +74,7 @@ parser.add_argument("--gradient_accumulation_steps", type=int, default=2,
                     help="to increase effective batch size "
                          "and reduce synchronization")
 parser.add_argument("--eval_batch_size", type=int, default=4)
-# FIXME: looks like the eval_batch_size will affect the ppl score greatly. but why?
+
 parser.add_argument("--learning_rate", type=float, default=1e-5)
 parser.add_argument("--num_optim_steps", type=int, default=1000000,
                     help="new API specifies num update steps")
@@ -76,7 +88,7 @@ parser.add_argument("--fp16", type=boolean_string, default=True)
 parser.add_argument("--lr_schedule", type=str,
                     choices=['noam', 'noamwd', 'BERT', 'None'], default='noam')
 parser.add_argument("--loss_scale", type=float, default=0)
-parser.add_argument("--no_token_id", type=boolean_string, default=True) # FIXME: should we use token_id or not?
+parser.add_argument("--no_token_id", type=boolean_string, default=True) 
 
 parser.add_argument("--output_dir", type=str)
 parser.add_argument("--log_dir", type=str)
@@ -93,7 +105,15 @@ parser.add_argument("--persona_emb_type", type=str,default='decode',
                          "`all`: add persona_emb to all the positions"
                          "`none`: add no persona_emb, used for baseline")
 parser.add_argument("--PersonaNum", type=int, default=4167,help='number of persona')
-  
+parser.add_argument("--do_persona_linear", type=boolean_string, default=False) 
+parser.add_argument("--persona_n_embd", type=int, default=1024,help='number of embedding of persona')
+parser.add_argument('--PersonaEmbFiles', type=str, default='None')
+parser.add_argument("--PersonaEmbScale", type=float, default=10)
+# TODO: 1. how to normalized the persona_emb ?
+# TODO: 2. if the emb are normalized, how to joint train?
+#       lets first just scale the emb.[] # FIXME: see how it works
+
+
 # do normal parsing
 args = parser.parse_args()
 
@@ -202,9 +222,35 @@ eval_dataloader_gen = get_eval_list_same_length(
 config.no_token_id=args.no_token_id
 config.persona_emb_type=args.persona_emb_type
 config.PersonaNum=args.PersonaNum
-
+config.do_persona_linear=args.do_persona_linear
+config.persona_n_embd=args.persona_n_embd
 model = load_model(GPT2LMHeadModel(config), args.init_checkpoint,
                    args, verbose=True)
+
+# load emb
+if args.PersonaEmbFiles!='None':
+    if not do_persona_linear:
+        raise ValueError(
+            "args.do_persona_linear must be True if we want to use pretrained persona emb files "
+        ) # because we cannot train a 1024 dim tf-user emb now.  
+    emb_files=args.PersonaEmbFiles.split(',')
+    embs_list=[]
+    for emb_file in emb_files:
+        embs=read_emb_file(emb_file)
+        embs_list.append(embs)
+
+    merged_emb=np.concatenate(embs_list,axis=1)
+    assert merged_emb.shape[0]==args.PersonaNum,(merged_emb.shape[0],args.PersonaNum)
+    assert merged_emb.shape[1]==args.persona_n_embd,(merged_emb.shape[1],args.persona_n_embd)
+    merged_emb=merged_emb/args.PersonaEmbScale
+    print('init persona embedding from file',emb_files)
+    print('with {} dims'.format(merged_emb.shape[1]))
+    model.transformer.persona_embedding.weight.data.copy_(torch.from_numpy(merged_emb))
+
+else:
+
+    print('randomly init persona embedding')
+
 if args.local_rank != -1:
     # when from scratch make sure initial models are the same
     params = [p.data for p in model.parameters()]
@@ -288,11 +334,6 @@ while True:
         seq_len = batch[0].shape[1]
         batch = tuple(t.to(device) for t in batch)
         input_ids, position_ids, token_ids, label_ids, persona_ids,*_ = batch
-        """ 
-        # FIXME: may use it later
-        if args.no_token_id:
-            token_ids = None
-        """
         loss, ppl,loss_sum,label_size = model(input_ids, persona_ids,  position_ids, token_ids, label_ids)
         # # train input
         # print('='*40)
@@ -381,18 +422,6 @@ while True:
 
                     eval_loss, eval_ppl = eval_model_loss(
                         model, enc, eval_dataloader_loss, epoch, args)
-                    # enable generation step evaluation for now
-                    # TODO: implement this eval_model_generation function.
-                    # ref : https://drogozhang.blog.csdn.net/article/details/103414921
-                    # gen_response = eval_model_generation(
-                    #     model, enc, eval_dataloader_gen, epoch, args)
-                    '''
-                    # probably use beam search only for test set
-                    if False:
-                        gen_response_beam = eval_model_generation(
-                            model, enc, eval_dataloader_gen, epoch, args,
-                            use_beam_search=True, beam_width=3)
-                    '''
                     print('{},{},{},{},{}'.format(
                         epoch+1, global_step+1, step+1, eval_loss, eval_ppl),
                         file=eval_logger)

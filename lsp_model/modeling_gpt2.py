@@ -63,7 +63,12 @@ class GPT2ModelFP16(GPT2Model):
         super(GPT2ModelFP16, self).__init__(config)
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.n_positions, config.n_embd)
-        self.persona_embedding=nn.Embedding(config.PersonaNum,config.n_embd)
+
+        if config.do_persona_linear:
+            self.persona_embedding=nn.Embedding(config.PersonaNum,config.persona_n_embd)
+            self.persona_linear =nn.Linear(config.persona_n_embd, config.n_embd, bias=False)            
+        else:
+            self.persona_embedding=nn.Embedding(config.PersonaNum,config.n_embd)
         block = BlockFP16(config.n_ctx, config, scale=True)
         self.h = nn.ModuleList([copy.deepcopy(block) for _ in range(config.n_layer)])
         self.ln_f = LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)

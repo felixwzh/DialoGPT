@@ -128,7 +128,6 @@ parser.add_argument("--gradient_accumulation_steps", type=int, default=2,
                     help="to increase effective batch size "
                          "and reduce synchronization")
 parser.add_argument("--eval_batch_size", type=int, default=4)
-# FIXME: looks like the eval_batch_size will affect the ppl score greatly. but why?
 # parser.add_argument("--learning_rate", type=float, default=1e-5)
 # parser.add_argument("--num_optim_steps", type=int, default=1000000,
 #                     help="new API specifies num update steps")
@@ -141,7 +140,7 @@ parser.add_argument("--fp16", type=boolean_string, default=True)
 # parser.add_argument("--lr_schedule", type=str,
                     # choices=['noam', 'noamwd', 'BERT', 'None'], default='noam')
 # parser.add_argument("--loss_scale", type=float, default=0)
-parser.add_argument("--no_token_id", type=boolean_string, default=True) # FIXME: should we use token_id or not?
+parser.add_argument("--no_token_id", type=boolean_string, default=True) 
 
 # parser.add_argument("--output_dir", type=str)
 # parser.add_argument("--log_dir", type=str)
