@@ -157,7 +157,10 @@ parser.add_argument("--persona_emb_type", type=str,default='decode',
                          "`all`: add persona_emb to all the positions"
                          "`none`: add no persona_emb, used for baseline")
 parser.add_argument("--PersonaNum", type=int, default=4167,help='number of persona')
-
+parser.add_argument("--do_persona_linear", type=boolean_string, default=False) 
+parser.add_argument("--persona_n_embd", type=int, default=1024,help='number of embedding of persona')
+parser.add_argument('--PersonaEmbFiles', type=str, default='None')
+parser.add_argument("--PersonaEmbScale", type=float, default=10)
 #####
 
 args = parser.parse_args()
@@ -184,6 +187,11 @@ if __name__ == '__main__':
 	config.no_token_id=args.no_token_id
 	config.persona_emb_type=args.persona_emb_type
 	config.PersonaNum=args.PersonaNum
+	
+	
+	
+	config.do_persona_linear=args.do_persona_linear
+	config.persona_n_embd=args.persona_n_embd	
 	args.n_gpu = 1
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	args.device=device

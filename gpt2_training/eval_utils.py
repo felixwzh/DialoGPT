@@ -91,7 +91,7 @@ def eval_model_loss(model, tokenizer, eval_dataloader, epoch_id, args):
     # print(label_total)
     print(f"\n Epoch {epoch_id}: Val loss {np.sum(tot_loss) / np.sum(tot_sample)} Val ppl {np.sum(tot_ppl) / np.sum(tot_sample)} ")
     print(f"\n Epoch {epoch_id}: Val loss {np.sum(tot_loss) / np.sum(tot_sample)} Val ppl {math.exp(loss_total.cpu().item()/label_total.cpu().item())} ")
-    return np.sum(tot_loss) / np.sum(tot_sample), np.sum(tot_ppl) / np.sum(tot_sample)
+    return np.sum(tot_loss) / np.sum(tot_sample), math.exp(loss_total.cpu().item()/label_total.cpu().item())
 
 
 
